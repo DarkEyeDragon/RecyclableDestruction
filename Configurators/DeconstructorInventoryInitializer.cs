@@ -1,19 +1,14 @@
 ﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
-using Bindito.Core;
 using Timberborn.Buildings;
 using Timberborn.Goods;
-using Timberborn.GoodStackSystem;
 using Timberborn.InventorySystem;
-using Timberborn.Persistence;
 using Timberborn.TemplateSystem;
 
 namespace RecyclableDestruction.Configurators;
 
-internal class DeconstructorInventoryInitializer : IDedicatedDecoratorInitializer<Inventory, Building>
+internal class DeconstructorInventoryInitializer : IDedicatedDecoratorInitializer<Inventory, DeconstructionInventory>
 {
-    
     private static readonly string InventoryComponentName = "DeconstructionInventory";
     private readonly IGoodService _goodService;
 
@@ -22,44 +17,40 @@ internal class DeconstructorInventoryInitializer : IDedicatedDecoratorInitialize
         _goodService = goodService;
     }
 
-    public void Initialize(Inventory decorator, Building subject)
+    public void Initialize(Inventory decorator, DeconstructionInventory subject)
     {
-        DeconstructionInventory inventory = subject.GetComponent<DeconstructionInventory>();
-        //var building = subject.GetComponentInParent<Building>();
-        InventoryInitializer inventoryInitializer = new InventoryInitializer(_goodService, decorator, 100, InventoryComponentName);
-        RecyclableDestruction.LOGGER.LogInfo("Inventory decorator:" + decorator);
-        RecyclableDestruction.LOGGER.LogInfo("Inventory subject:" + inventory);
-        AllowGoodsAsTakeable(inventoryInitializer, subject);
-        AddItems(decorator, subject.BuildingCost);
-        inventoryInitializer.HasPublicOutput();
-        inventoryInitializer.Initialize();
+        var buildingCost = subject.GetComponent<Building>().BuildingCost;
+        var hasCost = buildingCost is { Count: > 0 };
+        if (hasCost)
+        {
+            var goods = new List<StorableGoodAmount>();
+            foreach (var cost in buildingCost)
+            {
+                var storableGood = StorableGood.CreateAsTakeable(cost.GoodId);
+                goods.Add(new StorableGoodAmount(storableGood, cost.Amount));
+            }
+
+            var inventoryInitializer = new InventoryInitializer(_goodService, decorator, goods.Sum(good => good.Amount),
+                InventoryComponentName);
+
+            inventoryInitializer.AddAllowedGoods(goods);
+            inventoryInitializer.HasPublicOutput();
+            inventoryInitializer.Initialize();
+
+            AddItems(decorator, goods);
+        }
+        else
+        {
+            var inventoryInitializer = new InventoryInitializer(_goodService, decorator, 0, InventoryComponentName);
+            inventoryInitializer.Initialize();
+        }
+
+        subject.InitializeInventory(decorator);
         //decorator.Disable();
-        inventory.InitializeInventory(decorator);
-    }
-    
-    private void AllowGoodsAsTakeable(
-        InventoryInitializer inventoryInitializer,
-        Building building)
-    {
-        foreach (GoodAmountSpecification cost in building.BuildingCost)
-        {
-            StorableGoodAmount good = new StorableGoodAmount(StorableGood.CreateAsTakeable(cost.GoodId), cost.Amount);
-            inventoryInitializer.AddAllowedGood(good);
-        }
     }
 
-    private void AddItems(Inventory inventory, IEnumerable<GoodAmountSpecification> cost)
+    private void AddItems(Inventory inventory, IEnumerable<StorableGoodAmount> goods)
     {
-        foreach (var goodAmountSpecification in cost)
-        {
-            inventory.Give(goodAmountSpecification.ToGoodAmount());
-        }
+        foreach (var good in goods) inventory.Give(new GoodAmount(good.StorableGood.GoodId, good.Amount));
     }
-    private int CalculateTotalCapacity(
-        DeconstructionInventory simpleOutputInventory,
-        IAllowedGoodProvider provider)
-    {
-        return provider == null ? simpleOutputInventory.Capacity : simpleOutputInventory.Capacity * provider.GetAllowedGoods().Count();
-    }
-
 }
