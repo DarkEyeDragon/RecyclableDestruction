@@ -3,10 +3,11 @@ using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using RecyclableDestruction.Configurators;
+using RecyclableDestruction.DeconstructionSites;
+using RecyclableDestruction.Types;
 using Timberborn.BlockSystem;
 using Timberborn.Buildings;
-using Timberborn.InventorySystem;
-using Timberborn.SimpleOutputBuildings;
+using Timberborn.ConstructibleSystem;
 
 namespace RecyclableDestruction.Patches;
 
@@ -19,26 +20,27 @@ public class EntityDeletePatch
             new[] { typeof(IEnumerable<BlockObject>) });
     }
 
-static bool Prefix(IEnumerable<BlockObject> blockObjects, out IEnumerable<BlockObject> __state)
-{
-    RecyclableDestruction.LOGGER.LogInfo($"POSTFIX {nameof(__state)}");
-    foreach (var blockObject in blockObjects)
+    static bool Prefix(IEnumerable<BlockObject> blockObjects, out IEnumerable<BlockObject> __state)
     {
-        blockObject.TryGetComponent(out BuildingModel buildingModel);
-        blockObject.TryGetComponent(out Building building);
-        blockObject.TryGetComponent(out DeconstructionInventory deconstructionInventory);
-        if (deconstructionInventory == null) break;
-        /*foreach (var goodAmountSpecification in building.BuildingCost)
+        RecyclableDestruction.LOGGER.LogInfo($"POSTFIX {nameof(EntityDeletePatch)}");
+        __state = blockObjects;
+        foreach (var blockObject in blockObjects)
         {
-            deconstructionInventory.Inventory.Give(goodAmountSpecification.ToGoodAmount());
-        }*/
-        buildingModel.ShowUnfinishedModel();
-        blockObject.MarkAsUnfinished();
-        RecyclableDestruction.LOGGER.LogInfo(deconstructionInventory.Inventory.Stock.Count());
+            blockObject.TryGetComponent(out BuildingModel buildingModel);
+            blockObject.TryGetComponent(out DeconstructionSite deconstructionSite);
+            if (deconstructionSite == null) return true;
+            var deconstructable = blockObject.GetComponent<Deconstructable>();
+            if (deconstructable.IsDeconstructing) return false;
+            deconstructable.Deconstruct();
+            /*constructible.EnterConstructionState(ConstructionState.Unfinished);
+            constructible.enabled = false;
+            buildingModel.ShowUnfinishedModel();
+            blockObject.MarkAsUnfinished();
+            deconstructionInventory.EnableInventory(blockObject.gameObject);*/
+        }
+
+        return false;
     }
-    __state = blockObjects;
-    return false;
-}
 
     static void Postfix(IEnumerable<BlockObject> __state)
     {

@@ -6,11 +6,11 @@ using Timberborn.TemplateSystem;
 namespace RecyclableDestruction.Configurators;
 
 [Configurator(SceneEntrypoint.InGame)]
-public class DeconstructionInventoryConfigurator : IConfigurator
+public class DeconstructionSiteConfigurator : IConfigurator
 {
     public void Configure(IContainerDefinition containerDefinition)
     {
-        containerDefinition.Bind<DeconstructorInventoryInitializer>().AsSingleton();
-        containerDefinition.MultiBind<TemplateModule>().ToProvider<DeconstructionInventoryTemplateModuleProvider>().AsSingleton();
+        containerDefinition.Bind<DeconstructionSiteInventoryInitializer>().AsSingleton();
+        containerDefinition.MultiBind<TemplateModule>().ToProvider<DeconstructionSiteTemplateModuleProvider>().AsSingleton();
     }
 }

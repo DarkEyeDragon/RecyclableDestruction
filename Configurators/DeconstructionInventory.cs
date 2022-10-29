@@ -1,51 +1,69 @@
 ﻿using System;
+using Bindito.Core;
+using RecyclableDestruction.Events;
+using RecyclableDestruction.Types;
 using Timberborn.Common;
 using Timberborn.ConstructibleSystem;
+using Timberborn.EntitySystem;
 using Timberborn.InventorySystem;
+using Timberborn.SingletonSystem;
 using UnityEngine;
 
 namespace RecyclableDestruction.Configurators;
 
-public class DeconstructionInventory : MonoBehaviour, IFinishedStateListener
+public class DeconstructionInventory : MonoBehaviour
 {
     [SerializeField]
     private int _capacity;
-    [SerializeField]
-    private bool _disableAfterEmptying;
 
+    private EventBus _eventBus;
+    private GameObject _gameObject;
     public Inventory Inventory { get; private set; }
 
     public int Capacity => _capacity;
 
-    public void Awake() => enabled = false;
+    public bool HasBuildingMaterials => Inventory.Capacity > 0;
+    public void Awake()
+    {
+        enabled = false;
+    }
 
+    [Inject]
+    public void InjectDependencies(EventBus eventBus)
+    {
+        _eventBus = eventBus;
+    }
+    
+    public void EnableInventory(GameObject gameObject)
+    {
+        //if (Inventory == null) return;
+        enabled = true;
+        Inventory.Enable();
+        Inventory.InventoryChanged += (_1, _2) => DeleteIfEmpty();
+        _gameObject = gameObject;
+    }
+    
     public void InitializeInventory(Inventory inventory)
     {
-        Asserts.FieldIsNull(this, Inventory, "Inventory");
+        //Asserts.FieldIsNull(this, Inventory, "Inventory");
+        if (Inventory != null)
+        {
+            RecyclableDestruction.LOGGER.LogInfo($"InitializeInventory: {Inventory.name}");
+        }
         Inventory = inventory;
     }
 
-    public void OnEnterFinishedState()
+    private void DeleteIfEmpty()
     {
-        if (Inventory.IsEmpty)
-            return;
-        enabled = true;
-        Inventory.Enable();
-        Inventory.InventoryChanged += (EventHandler<InventoryChangedEventArgs>) ((_1, _2) => DisableIfEmpty());
-    }
-
-    public void OnExitFinishedState() => Disable();
-
-    private void DisableIfEmpty()
-    {
+        RecyclableDestruction.LOGGER.LogInfo($"DeleteIfEmpty");
         if (!Inventory.IsEmpty)
             return;
-        Disable();
+        Delete();
     }
 
-    private void Disable()
+    private void Delete()
     {
-        Inventory.Disable();
+        RecyclableDestruction.LOGGER.LogInfo("DELETE");
         enabled = false;
     }
 }

@@ -7,7 +7,7 @@ using Timberborn.TemplateSystem;
 
 namespace RecyclableDestruction.Configurators;
 
-internal class DeconstructorInventoryInitializer : IDedicatedDecoratorInitializer<Inventory, DeconstructionInventory>
+internal class DeconstructorInventoryInitializer : IDedicatedDecoratorInitializer<DeconstructionInventory, Inventory>
 {
     private static readonly string InventoryComponentName = "DeconstructionInventory";
     private readonly IGoodService _goodService;
@@ -17,12 +17,19 @@ internal class DeconstructorInventoryInitializer : IDedicatedDecoratorInitialize
         _goodService = goodService;
     }
 
-    public void Initialize(Inventory decorator, DeconstructionInventory subject)
+    public void Initialize(DeconstructionInventory decorator, Inventory subject)
     {
-        var buildingCost = subject.GetComponent<Building>().BuildingCost;
+        if (decorator == null)
+        {
+            RecyclableDestruction.LOGGER.LogInfo("Decorator is NULL");
+        }
+
+        var building = subject.GetComponent<Building>();
+        var buildingCost = building.BuildingCost;
         var hasCost = buildingCost is { Count: > 0 };
         if (hasCost)
         {
+            RecyclableDestruction.LOGGER.LogInfo($"Initialize with non empty inv: {building.name}");
             var goods = new List<StorableGoodAmount>();
             foreach (var cost in buildingCost)
             {
@@ -30,22 +37,26 @@ internal class DeconstructorInventoryInitializer : IDedicatedDecoratorInitialize
                 goods.Add(new StorableGoodAmount(storableGood, cost.Amount));
             }
 
-            var inventoryInitializer = new InventoryInitializer(_goodService, decorator, goods.Sum(good => good.Amount),
+            var inventoryInitializer = new InventoryInitializer(_goodService, subject, goods.Sum(good => good.Amount),
                 InventoryComponentName);
 
             inventoryInitializer.AddAllowedGoods(goods);
             inventoryInitializer.HasPublicOutput();
             inventoryInitializer.Initialize();
 
-            AddItems(decorator, goods);
+            AddItems(subject, goods);
+            decorator.InitializeInventory(subject);
+            RecyclableDestruction.LOGGER.LogInfo("Initialized");
         }
         else
         {
-            var inventoryInitializer = new InventoryInitializer(_goodService, decorator, 0, InventoryComponentName);
+            RecyclableDestruction.LOGGER.LogInfo($"Initialize with empty inv: {building.name}");
+            var inventoryInitializer = new InventoryInitializer(_goodService, subject, 0, InventoryComponentName);
             inventoryInitializer.Initialize();
+            RecyclableDestruction.LOGGER.LogInfo("Initialized");
         }
 
-        subject.InitializeInventory(decorator);
+        decorator.InitializeInventory(subject);
         //decorator.Disable();
     }
 

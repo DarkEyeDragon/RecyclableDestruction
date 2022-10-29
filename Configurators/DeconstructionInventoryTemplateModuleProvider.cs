@@ -1,5 +1,9 @@
 ﻿using Bindito.Core;
+using RecyclableDestruction.DeconstructionSites;
+using RecyclableDestruction.Types;
 using Timberborn.Buildings;
+using Timberborn.ConstructibleSystem;
+using Timberborn.ConstructionSites;
 using Timberborn.InventorySystem;
 using Timberborn.TemplateSystem;
 
@@ -18,7 +22,7 @@ internal class DeconstructionInventoryTemplateModuleProvider : IProvider<Templat
     public TemplateModule Get()
     {
         TemplateModule.Builder builder = new TemplateModule.Builder();
-        builder.AddDecorator<Building, DeconstructionInventory>();
+        builder.AddDecorator<DeconstructionSite, DeconstructionInventory>();
         builder.AddDedicatedDecorator(_deconstructorInventoryInitializer);
         return builder.Build();
     }
